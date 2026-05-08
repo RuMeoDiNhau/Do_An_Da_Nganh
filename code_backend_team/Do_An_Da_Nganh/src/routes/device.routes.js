@@ -1,0 +1,12 @@
+﻿"use strict";
+
+const express = require("express");
+const { authMiddleware } = require("../middlewares/auth.middleware");
+const deviceController = require("../controllers/device.controller");
+
+const router = express.Router();
+
+router.get("/", authMiddleware, deviceController.list);
+router.post("/:id/control", authMiddleware, deviceController.control);
+
+module.exports = router;

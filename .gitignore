@@ -1,0 +1,55 @@
+﻿# Node modules
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Documentation and Learning Materials
+[GiaoTrinh]*.pdf
+YoloFarm___AIoT.pdf
+YoloHome___AIoT_v2.pdf
+Hệ thống đề xuất*.PNG
+
+# Project files to exclude
+IoT.json.json
+List video hướng dẫn sử dụng thiết bị.txt
+module 7 8 9.docx
+module 1 2 3+usecase+usecase detail.docx
+usecase 4 5 6.docx
+usecase_dia_module_1_2_3.drawio
+ui.zip
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+Thumbs.db
+._*
+
+# Test results
+coverage/
+test-results/
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Backend specific
+prisma/migrations/
+/src/generated/prisma

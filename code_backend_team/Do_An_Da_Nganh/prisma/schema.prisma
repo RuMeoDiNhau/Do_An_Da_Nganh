@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js" 
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model alert {
+  a_id     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  a_type   String   @db.VarChar(50)
+  r_id     String?  @db.Uuid
+  metadata Json?
+  time     DateTime @default(now()) @db.Timestamp(6)
+  rooms    rooms?   @relation(fields: [r_id], references: [r_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_alert_room")
+}
+
+model control_log {
+  c_id      BigInt   @id @default(autoincrement())
+  device_id String?  @db.VarChar(50)
+  u_id      String?  @db.Uuid
+  event     Json
+  time      DateTime @default(now()) @db.Timestamp(6)
+  devices   devices? @relation(fields: [device_id], references: [device_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_log_device")
+  users     users?   @relation(fields: [u_id], references: [u_id], onUpdate: NoAction, map: "fk_log_user")
+}
+
+model devices {
+  device_id       String            @id @db.VarChar(50)
+  d_name          String            @db.VarChar(100)
+  type            String            @db.VarChar(50)
+  state           String            @db.VarChar(20)
+  r_id            String?           @db.Uuid
+  control_log     control_log[]
+  rooms           rooms?            @relation(fields: [r_id], references: [r_id], onUpdate: NoAction, map: "fk_device_room")
+  sensors_special sensors_special[]
+}
+
+model environment {
+  en_id        BigInt   @id @default(autoincrement())
+  r_id         String?  @db.Uuid
+  temp         Float?
+  bright       Float?
+  humidity     Float?
+  gas_level    Float?
+  time_created DateTime @default(now()) @db.Timestamp(6)
+  rooms        rooms?   @relation(fields: [r_id], references: [r_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_env_room")
+
+  @@index([time_created], map: "idx_environment_time")
+}
+
+model items {
+  item_id        String    @id @db.VarChar(50)
+  item_name      String    @db.VarChar(100)
+  u_id           String?   @db.Uuid
+  status         String    @db.VarChar(50)
+  time_last_seen DateTime? @db.Timestamp(6)
+  r_id           String?   @db.Uuid
+  rooms          rooms?    @relation(fields: [r_id], references: [r_id], onUpdate: NoAction, map: "fk_item_room")
+  users          users?    @relation(fields: [u_id], references: [u_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_item_user")
+}
+
+model preferences {
+  pre_id Int     @id @default(autoincrement())
+  u_id   String? @unique @db.Uuid
+  temp   Float?
+  fan    Int?
+  light  String? @db.VarChar(50)
+  mode   String  @db.VarChar(50)
+  users  users?  @relation(fields: [u_id], references: [u_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pref_user")
+}
+
+model rooms {
+  r_id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String        @db.VarChar(100)
+  u_id        String?       @db.Uuid
+  room_type   String        @db.VarChar(50)
+  alert       alert[]
+  devices     devices[]
+  environment environment[]
+  items       items[]
+  users       users?        @relation(fields: [u_id], references: [u_id], onUpdate: NoAction, map: "fk_user_room")
+}
+
+model sensors_special {
+  s_id      String   @id @db.VarChar(50)
+  s_name    String   @db.VarChar(100)
+  device_id String?  @db.VarChar(50)
+  data      Json?
+  time      DateTime @default(now()) @db.Timestamp(6)
+  devices   devices? @relation(fields: [device_id], references: [device_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_sensor_device")
+}
+
+model threshold {
+  thre_id      Int    @id @default(autoincrement())
+  config_key   String @unique @db.VarChar(100)
+  config_value Json
+}
+
+model users {
+  u_id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username    String        @unique @db.VarChar(50)
+  password    String        @db.VarChar(255)
+  role        String        @db.VarChar(20)
+  face_label  String?       @db.VarChar(100)
+  email       String?       @unique @db.VarChar(100)
+  control_log control_log[]
+  items       items[]
+  preferences preferences?
+  rooms       rooms[]
+}

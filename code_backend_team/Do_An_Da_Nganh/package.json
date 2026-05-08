@@ -1,0 +1,37 @@
+{
+    "name": "backend-smarthome",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Smart home backend (Express + Prisma + MQTT + WebSocket) scaffold.",
+    "main": "server.js",
+    "scripts": {
+        "dev": "node server.js",
+        "start": "node server.js",
+        "start:bg": "node scripts/start-bg.js",
+        "stop:bg": "node scripts/stop-bg.js",
+        "status:bg": "node scripts/status-bg.js",
+        "prisma:generate": "prisma generate",
+        "prisma:migrate": "prisma migrate dev",
+        "prisma:studio": "prisma studio",
+        "dev:nodemon": "nodemon server.js",
+        "dev:watch": "node --watch server.js",
+        "test": "node test.js",
+        "test:db": "node test.js"
+    },
+    "dependencies": {
+        "@prisma/client": "^6.19.3",
+        "bcryptjs": "^2.4.3",
+        "cors": "^2.8.6",
+        "dotenv": "^16.6.1",
+        "express": "^4.22.1",
+        "jsonwebtoken": "^9.0.2",
+        "mqtt": "^5.10.1",
+        "pino": "^9.3.2",
+        "ws": "^8.18.0"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.4",
+        "pino-pretty": "^11.2.0",
+        "prisma": "^6.19.3"
+    }
+}
