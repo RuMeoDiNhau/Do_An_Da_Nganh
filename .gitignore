@@ -58,4 +58,6 @@ prisma/migrations/
 #nguyen dir 
 all_code.txt
 print_project.py
+*.pyc
 venv/
+**/__pycache__/
