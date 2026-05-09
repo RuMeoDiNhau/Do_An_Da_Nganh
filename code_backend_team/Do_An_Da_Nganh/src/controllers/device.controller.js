@@ -1,6 +1,7 @@
 ﻿"use strict";
 
 const deviceService = require("../services/device.service");
+const { getBroadcast } = require("../iot/wsHandler");
 
 async function list(req, res, next) {
   try {
@@ -22,4 +23,24 @@ async function control(req, res, next) {
   }
 }
 
-module.exports = { list, control };
+async function faceAccessWebhook(req, res, next) {
+  try {
+    const payload = req.body;
+    
+    if (payload.action === "unlock") {
+      // 1. Phát sóng WebSocket lên UI để giao diện cập nhật ngay lập tức
+      const broadcast = getBroadcast();
+      if (broadcast) {
+        broadcast({ type: "FACE_DETECTED", data: payload });
+      }
+
+      // 2. Gửi lệnh MQTT mở cửa (Thay deviceId thành ID cửa của bạn)
+      // await deviceService.controlDevice({ deviceId: "front_door", action: "turn_on" });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, control, faceAccessWebhook };

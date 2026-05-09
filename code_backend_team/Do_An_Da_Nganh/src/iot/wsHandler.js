@@ -2,7 +2,7 @@
 
 const WebSocket = require("ws");
 const logger = require("../utils/logger");
-
+let globalBroadcast = null;
 function initWebSocketServer(server) {
   const wss = new WebSocket.Server({ server });
 
@@ -19,8 +19,10 @@ function initWebSocketServer(server) {
       if (client.readyState === WebSocket.OPEN) client.send(data);
     });
   }
-
+  globalBroadcast = broadcast;
   return { wss, broadcast };
 }
 
-module.exports = { initWebSocketServer };
+function getBroadcast() { return globalBroadcast; }
+
+module.exports = { initWebSocketServer, getBroadcast };

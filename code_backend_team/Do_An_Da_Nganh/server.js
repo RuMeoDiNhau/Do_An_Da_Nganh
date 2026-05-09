@@ -3,12 +3,19 @@
 require("dotenv").config();
 const http = require("http");
 
+const { spawn } = require("child_process");
+
 const app = require("./src/app");
 const { connectDb, disconnectDb } = require("./src/config/database");
 const { initWebSocketServer } = require("./src/iot/wsHandler");
 const { initMqtt } = require("./src/iot/mqttHandler");
 const logger = require("./src/utils/logger");
-
+logger.info("AI FastAPI Server...");
+  const pythonServer = spawn("uvicorn", ["server:app", "--host", "0.0.0.0", "--port", "8000"], {
+    cwd: "./ai_sever", 
+    shell: true,
+    stdio: "inherit" 
+  });
 function envFlag(name) {
   const v = String(process.env[name] || "").toLowerCase();
   return v === "1" || v === "true" || v === "yes";
@@ -53,12 +60,22 @@ async function main() {
 
   const shutdown = async () => {
     logger.info("Shutting down");
+    if (process.platform === "win32") {
+        require("child_process").exec('taskkill /F /IM python.exe /T', (err) => {
+            // Ép thoát Node.js ngay sau khi chém Python, không chờ đợi
+            process.exit(0);
+        });
+    } else {
+        if (pythonServer) pythonServer.kill("SIGKILL");
+        process.exit(0);
+    }
     try {
       await disconnectDb();
     } catch (err) {
       logger.warn({ err }, "DB disconnect failed");
     }
-    server.close(() => process.exit(0));
+    // server.close(() => process.exit(0));
+    process.exit(0);
   };
 
   process.on("SIGINT", shutdown);

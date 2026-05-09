@@ -26,9 +26,12 @@ const accessLog = [
 ];
 
 export function AccessSecurity({ role }: AccessSecurityProps) {
-  const [isLocked, setIsLocked] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isLocked, setIsLocked] = useState(true);
+  const [dynamicLog, setDynamicLog] = useState(accessLog);
   const [isCameraOn, setIsCameraOn] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  // const [isCameraOn, setIsCameraOn] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [detectedFace, setDetectedFace] = useState<{ name: string; confidence: number } | null>(null);
 
@@ -58,21 +61,37 @@ export function AccessSecurity({ role }: AccessSecurityProps) {
     setDetectedFace(null);
   };
 
-  useEffect(() => {
-    if (isCameraOn && videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
-  }, [isCameraOn, stream]);
+  // useEffect(() => {
+  //   if (isCameraOn && videoRef.current && stream) {
+  //     videoRef.current.srcObject = stream;
+  //   }
+  // }, [isCameraOn, stream]);
 
+  // useEffect(() => {
+  //   return () => {
+  //     if (stream) {
+  //       stream.getTracks().forEach((track) => track.stop());
+  //     }
+  //   };
+  // }, [stream]);
   useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+    const ws = new WebSocket('ws://localhost:3001');
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'FACE_DETECTED') {
+        setIsLocked(false);
+        setDynamicLog(prev => [
+          { name: msg.data.user_class, time: new Date().toLocaleTimeString(), status: 'AI Granted', type: 'success' },
+          ...prev
+        ]);
+        setTimeout(() => setIsLocked(true), 5000); // Tự khoá lại sau 5s
       }
     };
-  }, [stream]);
+    return () => ws.close();
+  }, []);
 
   return (
+
     <div className="space-y-6 h-full flex flex-col">
       
       {/* Header */}
@@ -117,12 +136,17 @@ export function AccessSecurity({ role }: AccessSecurityProps) {
             {/* Camera Feed Container */}
             <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner flex shrink-0">
               {isCameraOn ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="h-full w-full object-cover transform scale-x-[-1]"
+                // <video
+                //   ref={videoRef}
+                //   autoPlay
+                //   playsInline
+                //   muted
+                //   className="h-full w-full object-cover transform scale-x-[-1]"
+                // />
+                <img 
+                  src="http://localhost:8000/video_feed" 
+                  alt="AI Camera Feed"
+                  className="h-full w-full object-cover" 
                 />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
@@ -261,7 +285,8 @@ export function AccessSecurity({ role }: AccessSecurityProps) {
             {/* Sử dụng overflow-y-auto để cuộn mượt nếu danh sách dài */}
             <CardContent className="p-4 flex-1 overflow-y-auto custom-scrollbar">
               <div className="space-y-3">
-                {accessLog.map((item, index) => (
+                {/* {accessLog.map((item, index) => ( */}
+                {dynamicLog.map((item, index) => (
                   <div 
                     key={index} 
                     className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-slate-100 transition-colors"

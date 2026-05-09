@@ -53,3 +53,9 @@ test-results/
 # Backend specific
 prisma/migrations/
 /src/generated/prisma
+
+
+#nguyen dir 
+all_code.txt
+print_project.py
+venv/
