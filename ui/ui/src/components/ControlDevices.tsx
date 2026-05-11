@@ -10,6 +10,7 @@ import {
   BatteryFull, BatteryLow, Wifi, WifiOff, Power,
   Wind, ChefHat, Bed, Briefcase, ChevronLeft, Settings
 } from 'lucide-react';
+import { api } from '../services/api';
 
 const connectedDevices = [
   { name: 'Living Room Hub', type: 'Hub', status: 'Online', battery: null, icon: Router },
@@ -87,9 +88,30 @@ export function EnvironmentDevices() {
     }, {} as Record<string, Record<string, boolean>>);
   });
 
+  const [loadingDevices, setLoadingDevices] = useState<Set<string>>(new Set());
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const activeRoom = rooms.find((room) => room.name === activeRoomDetail);
 
-  const toggleRoomDevice = (roomName: string, deviceName: string) => {
+  const mapDeviceNameToId = (deviceName: string): string => {
+    const nameMap: Record<string, string> = {
+      'Main Light': 'light',
+      'Kitchen Light': 'light',
+      'Bedside Lamp': 'light',
+      'Desk Light': 'light',
+      'Ceiling Fan': 'fan',
+      'Range Hood': 'fan',
+      'Desk Fan': 'fan',
+      'Standing Fan': 'fan',
+    };
+    return nameMap[deviceName] || 'button1';
+  };
+
+  const toggleRoomDevice = async (roomName: string, deviceName: string) => {
+    const deviceKey = `${roomName}-${deviceName}`;
+    const currentState = roomDeviceStates[roomName][deviceName];
+    
+    // Optimistically update UI
     setRoomDeviceStates((prev) => ({
       ...prev,
       [roomName]: {
@@ -97,6 +119,35 @@ export function EnvironmentDevices() {
         [deviceName]: !prev[roomName][deviceName],
       },
     }));
+
+    setLoadingDevices((prev) => new Set(prev).add(deviceKey));
+    setErrorMessage(null);
+
+    try {
+      const deviceId = mapDeviceNameToId(deviceName);
+      const action = !currentState ? 'turn_on' : 'turn_off';
+
+      await api.controlDevice(deviceId, { action });
+    } catch (error) {
+      // Revert on error
+      setRoomDeviceStates((prev) => ({
+        ...prev,
+        [roomName]: {
+          ...prev[roomName],
+          [deviceName]: currentState,
+        },
+      }));
+
+      const errorMsg = error instanceof Error ? error.message : 'Failed to control device';
+      setErrorMessage(`${deviceName}: ${errorMsg}`);
+      console.error(`Failed to control ${deviceName}:`, error);
+    } finally {
+      setLoadingDevices((prev) => {
+        const updated = new Set(prev);
+        updated.delete(deviceKey);
+        return updated;
+      });
+    }
   };
 
   const getBatteryIcon = (level: number | null) => {
@@ -269,11 +320,21 @@ export function EnvironmentDevices() {
                     </div>
                   </div>
 
+                  {/* Error Message */}
+                  {errorMessage && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+                      <p className="font-semibold"> Lỗi:</p>
+                      <p>{errorMessage}</p>
+                    </div>
+                  )}
+
                   {/* Danh sách thiết bị */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activeRoom.devices.map((device) => {
                       const DeviceIcon = device.icon;
                       const isOn = roomDeviceStates[activeRoom.name][device.name];
+                      const deviceKey = `${activeRoom.name}-${device.name}`;
+                      const isLoading = loadingDevices.has(deviceKey);
                       
                       return (
                         <div
@@ -294,7 +355,8 @@ export function EnvironmentDevices() {
                             </div>
                             
                             <Switch 
-                              checked={isOn} 
+                              checked={isOn}
+                              disabled={isLoading}
                               onCheckedChange={() => toggleRoomDevice(activeRoom.name, device.name)}
                               className="data-[state=checked]:bg-blue-600"
                             />
@@ -303,12 +365,13 @@ export function EnvironmentDevices() {
                           {/* Dải nút Configure */}
                           <div className="flex items-center justify-between pt-4 border-t border-slate-200/60 mt-2">
                             <Badge variant="outline" className={`${isOn ? 'bg-blue-100 text-blue-700 border-none' : 'bg-slate-100 text-slate-500 border-none'}`}>
-                              {isOn ? 'Đang hoạt động' : 'Đang tắt'}
+                              {isLoading ? 'Đang xử lý...' : isOn ? 'Đang hoạt động' : 'Đang tắt'}
                             </Badge>
                             <Button 
                               variant="secondary" 
                               size="sm" 
                               className={`gap-2 ${isOn ? 'bg-white hover:bg-blue-100 text-blue-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+                              disabled={isLoading}
                             >
                               <Settings className="w-4 h-4" />
                               Configure
