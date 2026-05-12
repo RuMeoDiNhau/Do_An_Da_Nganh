@@ -67,6 +67,20 @@ async function rooms(req, res, next) {
   }
 }
 
+async function createRoom(req, res, next) {
+  try {
+    const { name, room_type, roomType } = req.body || {};
+    const data = await environmentService.createRoom({
+      name,
+      roomType: room_type || roomType,
+      userId: req.user?.sub || null
+    });
+    res.status(201).json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function snapshot(req, res, next) {
   try {
     const { roomId, scanLimit } = req.query;
@@ -83,5 +97,6 @@ module.exports = {
   history,
   latestByRoom,
   rooms,
+  createRoom,
   snapshot
 };

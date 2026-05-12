@@ -48,7 +48,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </div>
           
           <CardTitle className="text-2xl font-bold text-slate-900 tracking-tight">
-            YOLO HOME
+            Projekt SkyNet: Home Edition
           </CardTitle>
           <p className="text-sm text-slate-500 mt-2 font-medium">
             {mode === 'login'

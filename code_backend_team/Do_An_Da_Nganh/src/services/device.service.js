@@ -64,6 +64,33 @@ async function findDevice(deviceId) {
   });
 }
 
+async function updateDevice({ deviceId, data = {} } = {}) {
+  if (!deviceId) throw new Error("deviceId is required");
+
+  const payload = {};
+
+  if (Object.prototype.hasOwnProperty.call(data, "r_id")) {
+    payload.r_id = data.r_id || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "d_name") && data.d_name) {
+    payload.d_name = String(data.d_name).trim();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "type") && data.type) {
+    payload.type = String(data.type).trim();
+  }
+
+  if (Object.keys(payload).length === 0) {
+    throw new Error("No updatable device fields provided");
+  }
+
+  return prisma.devices.update({
+    where: { device_id: deviceId },
+    data: payload
+  });
+}
+
 function resolveControlTopic({ deviceId, device }) {
   const topicMap = getControlTopicMap();
   const candidates = [
@@ -152,4 +179,4 @@ async function controlDevice({ deviceId, action, payload, actor }) {
   };
 }
 
-module.exports = { listDevices, controlDevice };
+module.exports = { listDevices, findDevice, updateDevice, controlDevice };

@@ -44,6 +44,8 @@ export const api = {
   getEnvironmentLatest: (params?: Record<string, any>) => apiClient.get('/environment/latest', { params }),
   getEnvironmentSnapshot: (params?: Record<string, any>) => apiClient.get('/environment/snapshot', { params }),
   getEnvironmentHistory: (params?: Record<string, any>) => apiClient.get('/environment/history', { params }),
+  getEnvironmentRooms: (params?: Record<string, any>) => apiClient.get('/environment/rooms', { params }),
+  createEnvironmentRoom: (data: any) => apiClient.post('/environment/rooms', data),
   getEnvironmentRoomsLatest: (params?: Record<string, any>) => apiClient.get('/environment/rooms/latest', { params }),
   
   // Users
