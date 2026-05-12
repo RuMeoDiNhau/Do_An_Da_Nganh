@@ -36,27 +36,28 @@ export function AccessSecurity({ role }: AccessSecurityProps) {
   const [detectedFace, setDetectedFace] = useState<{ name: string; confidence: number } | null>(null);
 
   const startCamera = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: false 
-      });
-      setStream(mediaStream);
-      setIsCameraOn(true);
-    } catch (error) {
-      console.error("Lỗi khi truy cập camera: ", error);
-      alert("Không thể truy cập camera. Vui lòng kiểm tra quyền trên trình duyệt.");
-    }
+    // try {
+    //   const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+    //     video: true, 
+    //     audio: false 
+    //   });
+    //   setStream(mediaStream);
+    //   setIsCameraOn(true);
+    // } catch (error) {
+    //   console.error("Lỗi khi truy cập camera: ", error);
+    //   alert("Không thể truy cập camera. Vui lòng kiểm tra quyền trên trình duyệt.");
+    // }
+    setIsCameraOn(true);
   };
 
   const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    // if (stream) {
+    //   stream.getTracks().forEach((track) => track.stop());
+    //   setStream(null);
+    // }
+    // if (videoRef.current) {
+    //   videoRef.current.srcObject = null;
+    // }
     setIsCameraOn(false);
     setDetectedFace(null);
   };
