@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Badge } from './ui/badge';
@@ -8,113 +8,275 @@ import {
   Router, Thermometer, Lock, Lightbulb, Camera,
   Bot, Droplets, Speaker, ShieldAlert, Battery,
   BatteryFull, BatteryLow, Wifi, WifiOff, Power,
-  Wind, ChefHat, Bed, Briefcase, ChevronLeft, Settings
+  Wind, ChefHat, Bed, Briefcase, ChevronLeft, Settings, Home
 } from 'lucide-react';
 import { api } from '../services/api';
 
-const connectedDevices = [
-  { name: 'Living Room Hub', type: 'Hub', status: 'Online', battery: null, icon: Router },
-  { name: 'Smart Thermostat', type: 'Climate', status: 'Online', battery: 85, icon: Thermometer },
-  { name: 'Front Door Lock', type: 'Security', status: 'Online', battery: 67, icon: Lock },
-  { name: 'Kitchen Lights', type: 'Lighting', status: 'Online', battery: null, icon: Lightbulb },
-  { name: 'Bedroom Camera', type: 'Security', status: 'Offline', battery: 23, icon: Camera },
-  { name: 'Robot Vacuum', type: 'Appliance', status: 'Charging', battery: 100, icon: Bot },
-  { name: 'Garden Sprinkler', type: 'Outdoor', status: 'Online', battery: 45, icon: Droplets },
-  { name: 'Smart Speaker', type: 'Entertainment', status: 'Online', battery: null, icon: Speaker },
-  { name: 'Smoke Detector', type: 'Security', status: 'Online', battery: 92, icon: ShieldAlert },
+type DeviceApiRecord = {
+  device_id: string;
+  d_name: string;
+  type: string;
+  state: string;
+  r_id?: string | null;
+};
+
+type RoomReadingRecord = {
+  r_id?: string | null;
+  temp?: number | null;
+  bright?: number | null;
+  humidity?: number | null;
+  gas_level?: number | null;
+  rooms?: {
+    r_id: string;
+    name: string;
+    room_type: string;
+  } | null;
+};
+
+type ConnectedDeviceCard = {
+  key: string;
+  id?: string;
+  name: string;
+  type: string;
+  status: string;
+  battery: number | null;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type RoomDeviceCard = {
+  key: string;
+  id?: string;
+  name: string;
+  type: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type RoomCard = {
+  key: string;
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  lights: number;
+  temp: string;
+  occupied: boolean;
+  devices: RoomDeviceCard[];
+};
+
+const fallbackConnectedDevices: ConnectedDeviceCard[] = [
+  { key: 'Living Room Hub', name: 'Living Room Hub', type: 'Hub', status: 'Online', battery: null, icon: Router },
+  { key: 'Smart Thermostat', name: 'Smart Thermostat', type: 'Climate', status: 'Online', battery: 85, icon: Thermometer },
+  { key: 'Front Door Lock', name: 'Front Door Lock', type: 'Security', status: 'Online', battery: 67, icon: Lock },
+  { key: 'Kitchen Lights', name: 'Kitchen Lights', type: 'Lighting', status: 'Online', battery: null, icon: Lightbulb },
+  { key: 'Bedroom Camera', name: 'Bedroom Camera', type: 'Security', status: 'Offline', battery: 23, icon: Camera },
+  { key: 'Robot Vacuum', name: 'Robot Vacuum', type: 'Appliance', status: 'Charging', battery: 100, icon: Bot },
+  { key: 'Garden Sprinkler', name: 'Garden Sprinkler', type: 'Outdoor', status: 'Online', battery: 45, icon: Droplets },
+  { key: 'Smart Speaker', name: 'Smart Speaker', type: 'Entertainment', status: 'Online', battery: null, icon: Speaker },
+  { key: 'Smoke Detector', name: 'Smoke Detector', type: 'Security', status: 'Online', battery: 92, icon: ShieldAlert },
 ];
 
-const rooms = [
-  {
-    name: 'Living Room',
-    icon: Router,
-    lights: 3,
-    temp: '72°F',
-    occupied: true,
-    devices: [
-      { name: 'Main Light', type: 'Light', icon: Lightbulb },
-      { name: 'Ceiling Fan', type: 'Fan', icon: Wind },
-    ],
-  },
-  {
-    name: 'Kitchen',
-    icon: ChefHat,
-    lights: 2,
-    temp: '70°F',
-    occupied: false,
-    devices: [
-      { name: 'Kitchen Light', type: 'Light', icon: Lightbulb },
-      { name: 'Range Hood', type: 'Exhaust Fan', icon: Wind },
-      { name: 'Oven', type: 'Appliance', icon: Power },
-    ],
-  },
-  {
-    name: 'Bedroom',
-    icon: Bed,
-    lights: 1,
-    temp: '68°F',
-    occupied: true,
-    devices: [
-      { name: 'Air Conditioner', type: 'Climate', icon: Thermometer },
-      { name: 'Bedside Lamp', type: 'Light', icon: Lightbulb },
-      { name: 'Desk Fan', type: 'Fan', icon: Wind },
-    ],
-  },
-  {
-    name: 'Office',
-    icon: Briefcase,
-    lights: 2,
-    temp: '71°F',
-    occupied: false,
-    devices: [
-      { name: 'Desk Light', type: 'Light', icon: Lightbulb },
-      { name: 'Standing Fan', type: 'Fan', icon: Wind },
-      { name: 'Air Purifier', type: 'Air quality', icon: Wind },
-    ],
-  },
-];
+const roomIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  living: Home,
+  living_room: Home,
+  kitchen: ChefHat,
+  bedroom: Bed,
+  office: Briefcase,
+};
+
+const deviceIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  hub: Router,
+  climate: Thermometer,
+  thermostat: Thermometer,
+  lock: Lock,
+  lighting: Lightbulb,
+  light: Lightbulb,
+  camera: Camera,
+  appliance: Power,
+  robot: Bot,
+  vacuum: Bot,
+  outdoor: Droplets,
+  sprinkler: Droplets,
+  speaker: Speaker,
+  entertainment: Speaker,
+  security: ShieldAlert,
+  fan: Wind,
+};
+
+function getBatteryIcon(level: number | null) {
+  if (level === null) return <Power className="h-4 w-4 text-slate-400" />;
+  if (level > 80) return <BatteryFull className="h-4 w-4 text-emerald-500" />;
+  if (level < 30) return <BatteryLow className="h-4 w-4 text-red-500" />;
+  return <Battery className="h-4 w-4 text-slate-500" />;
+}
+
+function getDeviceIcon(type: string, name: string) {
+  const candidates = [
+    String(type || '').toLowerCase(),
+    String(name || '').toLowerCase(),
+  ];
+
+  for (const candidate of candidates) {
+    for (const [key, Icon] of Object.entries(deviceIconMap)) {
+      if (candidate.includes(key)) {
+        return Icon;
+      }
+    }
+  }
+
+  return Power;
+}
+
+function getRoomIcon(roomType?: string | null, roomName?: string | null) {
+  const keys = [
+    String(roomType || '').toLowerCase().replace(/\s+/g, '_'),
+    String(roomName || '').toLowerCase().replace(/\s+/g, '_'),
+  ];
+
+  for (const key of keys) {
+    if (roomIconMap[key]) {
+      return roomIconMap[key];
+    }
+  }
+
+  return Home;
+}
+
+function formatStatus(state: string) {
+  const normalized = String(state || '').toLowerCase();
+  if (normalized === 'on' || normalized === 'online' || normalized === 'active') return 'Online';
+  if (normalized === 'off' || normalized === 'offline' || normalized === 'inactive') return 'Offline';
+  if (normalized === 'charging') return 'Charging';
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Offline';
+}
+
+function isSwitchOn(state: string) {
+  return ['on', 'online', 'active', 'charging', 'open', 'unlocked'].includes(String(state || '').toLowerCase());
+}
+
+function formatTemperature(temp?: number | null) {
+  if (typeof temp !== 'number') {
+    return 'N/A';
+  }
+
+  return `${temp.toFixed(1)}°C`;
+}
 
 export function EnvironmentDevices() {
   const [activeRoomDetail, setActiveRoomDetail] = useState<string | null>(null);
-
-  const [roomDeviceStates, setRoomDeviceStates] = useState(() => {
-    return rooms.reduce((acc, room) => {
-      acc[room.name] = room.devices.reduce((deviceMap, device) => {
-        deviceMap[device.name] = true;
-        return deviceMap;
-      }, {} as Record<string, boolean>);
-      return acc;
-    }, {} as Record<string, Record<string, boolean>>);
-  });
-
+  const [devices, setDevices] = useState<DeviceApiRecord[]>([]);
+  const [roomReadings, setRoomReadings] = useState<RoomReadingRecord[]>([]);
+  const [roomDeviceStates, setRoomDeviceStates] = useState<Record<string, Record<string, boolean>>>({});
   const [loadingDevices, setLoadingDevices] = useState<Set<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const activeRoom = rooms.find((room) => room.name === activeRoomDetail);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [devicesResponse, roomResponse] = await Promise.all([
+          api.getDevices(),
+          api.getEnvironmentRoomsLatest(),
+        ]);
 
-  const mapDeviceNameToId = (deviceName: string): string => {
-    const nameMap: Record<string, string> = {
-      'Main Light': 'light',
-      'Kitchen Light': 'light',
-      'Bedside Lamp': 'light',
-      'Desk Light': 'light',
-      'Ceiling Fan': 'fan',
-      'Range Hood': 'fan',
-      'Desk Fan': 'fan',
-      'Standing Fan': 'fan',
+        const fetchedDevices = devicesResponse.data?.devices || [];
+        const fetchedRoomReadings = roomResponse.data?.data || [];
+
+        setDevices(fetchedDevices);
+        setRoomReadings(fetchedRoomReadings);
+
+        const groupedStates = fetchedDevices.reduce((acc: Record<string, Record<string, boolean>>, device: DeviceApiRecord) => {
+          const roomKey = device.r_id || '__unassigned__';
+          if (!acc[roomKey]) {
+            acc[roomKey] = {};
+          }
+          acc[roomKey][device.device_id] = isSwitchOn(device.state);
+          return acc;
+        }, {});
+
+        setRoomDeviceStates(groupedStates);
+      } catch (error) {
+        console.error('Failed to fetch device control data:', error);
+      }
     };
-    return nameMap[deviceName] || 'button1';
-  };
 
-  const toggleRoomDevice = async (roomName: string, deviceName: string) => {
-    const deviceKey = `${roomName}-${deviceName}`;
-    const currentState = roomDeviceStates[roomName][deviceName];
+    fetchData();
+  }, []);
+
+  const roomLookup = useMemo(() => {
+    return roomReadings.reduce((acc: Record<string, RoomReadingRecord>, item) => {
+      if (item.rooms?.r_id) {
+        acc[item.rooms.r_id] = item;
+      }
+      return acc;
+    }, {});
+  }, [roomReadings]);
+
+  const connectedDevices = useMemo<ConnectedDeviceCard[]>(() => {
+    if (devices.length === 0) {
+      return fallbackConnectedDevices;
+    }
+
+    return devices.map((device) => ({
+      key: device.device_id,
+      id: device.device_id,
+      name: device.d_name,
+      type: device.type,
+      status: formatStatus(device.state),
+      battery: null,
+      icon: getDeviceIcon(device.type, device.d_name),
+    }));
+  }, [devices]);
+
+  const rooms = useMemo<RoomCard[]>(() => {
+    const grouped = devices.reduce((acc: Record<string, RoomCard>, device) => {
+      const roomKey = device.r_id || '__unassigned__';
+      const reading = roomLookup[roomKey];
+      const roomName = reading?.rooms?.name || 'Unassigned Room';
+      const roomType = reading?.rooms?.room_type || roomName;
+
+      if (!acc[roomKey]) {
+        acc[roomKey] = {
+          key: roomKey,
+          name: roomName,
+          icon: getRoomIcon(roomType, roomName),
+          lights: 0,
+          temp: formatTemperature(reading?.temp),
+          occupied: false,
+          devices: [],
+        };
+      }
+
+      if (String(device.type).toLowerCase().includes('light') || String(device.d_name).toLowerCase().includes('light')) {
+        acc[roomKey].lights += 1;
+      }
+
+      if (isSwitchOn(device.state)) {
+        acc[roomKey].occupied = true;
+      }
+
+      acc[roomKey].devices.push({
+        key: device.device_id,
+        id: device.device_id,
+        name: device.d_name,
+        type: device.type,
+        icon: getDeviceIcon(device.type, device.d_name),
+      });
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped);
+  }, [devices, roomLookup]);
+
+  const activeRoom = rooms.find((room) => room.key === activeRoomDetail) || null;
+  const ActiveRoomIcon = activeRoom?.icon || Home;
+
+  const toggleRoomDevice = async (roomKey: string, device: RoomDeviceCard) => {
+    const deviceKey = `${roomKey}-${device.key}`;
+    const currentState = roomDeviceStates[roomKey]?.[device.key] ?? true;
 
     setRoomDeviceStates((prev) => ({
       ...prev,
-      [roomName]: {
-        ...prev[roomName],
-        [deviceName]: !prev[roomName][deviceName],
+      [roomKey]: {
+        ...prev[roomKey],
+        [device.key]: !currentState,
       },
     }));
 
@@ -122,22 +284,24 @@ export function EnvironmentDevices() {
     setErrorMessage(null);
 
     try {
-      const deviceId = mapDeviceNameToId(deviceName);
-      const action = !currentState ? 'turn_on' : 'turn_off';
+      if (!device.id) {
+        throw new Error('Device ID is missing');
+      }
 
-      await api.controlDevice(deviceId, { action });
+      const action = !currentState ? 'turn_on' : 'turn_off';
+      await api.controlDevice(device.id, { action });
     } catch (error) {
       setRoomDeviceStates((prev) => ({
         ...prev,
-        [roomName]: {
-          ...prev[roomName],
-          [deviceName]: currentState,
+        [roomKey]: {
+          ...prev[roomKey],
+          [device.key]: currentState,
         },
       }));
 
       const errorMsg = error instanceof Error ? error.message : 'Failed to control device';
-      setErrorMessage(`${deviceName}: ${errorMsg}`);
-      console.error(`Failed to control ${deviceName}:`, error);
+      setErrorMessage(`${device.name}: ${errorMsg}`);
+      console.error(`Failed to control ${device.name}:`, error);
     } finally {
       setLoadingDevices((prev) => {
         const updated = new Set(prev);
@@ -147,40 +311,33 @@ export function EnvironmentDevices() {
     }
   };
 
-  const getBatteryIcon = (level: number | null) => {
-    if (level === null) return <Power className="h-4 w-4 text-slate-400" />;
-    if (level > 80) return <BatteryFull className="h-4 w-4 text-emerald-500" />;
-    if (level < 30) return <BatteryLow className="h-4 w-4 text-red-500" />;
-    return <Battery className="h-4 w-4 text-slate-500" />;
-  };
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Device Control</h2>
-          <p className="text-sm text-slate-500 mt-1">Quản lý toàn bộ thiết bị kết nối và không gian sống của bạn.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Device Control</h2>
+          <p className="mt-1 text-sm text-slate-500">Quản lý toàn bộ thiết bị kết nối và không gian sống của bạn.</p>
         </div>
-        <Badge className="bg-blue-50 text-[#0033CC] border-[#cbe0ff] px-4 py-1.5 text-sm font-medium shadow-sm">
-          <Wifi className="w-4 h-4 mr-2 inline-block" />
+        <Badge className="border-[#cbe0ff] bg-blue-50 px-4 py-1.5 text-sm font-medium text-[#0033CC] shadow-sm">
+          <Wifi className="mr-2 inline-block h-4 w-4" />
           Connected Home
         </Badge>
       </div>
 
       <Card className="border-2 border-slate-300 shadow-md">
         <Tabs defaultValue="connected" className="w-full">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 rounded-t-xl pb-4">
-            <TabsList className="grid w-full grid-cols-2 h-14 bg-slate-200/50 p-1.5 rounded-xl">
+          <CardHeader className="rounded-t-xl border-b border-slate-100 bg-slate-50 pb-4">
+            <TabsList className="grid h-14 w-full grid-cols-2 rounded-xl bg-slate-200/50 p-1.5">
               <TabsTrigger
                 value="connected"
-                className="rounded-lg text-base font-medium py-2 data-[state=active]:shadow-sm data-[state=active]:bg-white"
+                className="rounded-lg py-2 text-base font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 onClick={() => setActiveRoomDetail(null)}
               >
                 Connected Devices
               </TabsTrigger>
               <TabsTrigger
                 value="settings"
-                className="rounded-lg text-base font-medium py-2 data-[state=active]:shadow-sm data-[state=active]:bg-white"
+                className="rounded-lg py-2 text-base font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
               >
                 Room Settings
               </TabsTrigger>
@@ -189,7 +346,7 @@ export function EnvironmentDevices() {
 
           <CardContent className="p-6">
             <TabsContent value="connected" className="mt-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {connectedDevices.map((device) => {
                   const DeviceIcon = device.icon;
                   const isOnline = device.status === 'Online';
@@ -197,47 +354,47 @@ export function EnvironmentDevices() {
 
                   return (
                     <div
-                      key={device.name}
-                      className="group flex flex-col justify-between rounded-xl border-2 border-slate-300 bg-white p-5 hover:border-blue-400 hover:shadow-md transition-all duration-200"
+                      key={device.key}
+                      className="group flex flex-col justify-between rounded-xl border-2 border-slate-300 bg-white p-5 transition-all duration-200 hover:border-blue-400 hover:shadow-md"
                     >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className={`p-2.5 rounded-lg ${isOnline || isCharging ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                      <div className="mb-4 flex items-start justify-between">
+                        <div className={`rounded-lg p-2.5 ${isOnline || isCharging ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
                           <DeviceIcon className="h-6 w-6" />
                         </div>
                         <Badge
-                          className={`text-xs px-2.5 py-0.5 font-medium flex items-center gap-1.5 ${
+                          className={`flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium ${
                             isOnline
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                               : isCharging
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-slate-50 text-slate-600 border-slate-200'
+                              ? 'border-amber-200 bg-amber-50 text-amber-700'
+                              : 'border-slate-200 bg-slate-50 text-slate-600'
                           }`}
                         >
-                          {isOnline ? <Wifi className="w-3 h-3" /> : isCharging ? <Power className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                          {isOnline ? <Wifi className="h-3 w-3" /> : isCharging ? <Power className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
                           {device.status}
                         </Badge>
                       </div>
 
                       <div>
-                        <p className="text-base font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">{device.name}</p>
-                        <p className="text-xs text-slate-500 font-medium mb-4">{device.type}</p>
+                        <p className="text-base font-semibold text-slate-900 transition-colors group-hover:text-blue-700">{device.name}</p>
+                        <p className="mb-4 text-xs font-medium text-slate-500">{device.type}</p>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-4 border-t border-slate-100">
+                      <div className="flex items-center gap-2 border-t border-slate-100 pt-4">
                         {getBatteryIcon(device.battery)}
                         <div className="flex-1">
                           {device.battery !== null ? (
                             <div className="flex items-center gap-2">
-                              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                                 <div
                                   className={`h-full rounded-full ${device.battery > 30 ? 'bg-emerald-500' : 'bg-red-500'}`}
                                   style={{ width: `${device.battery}%` }}
                                 />
                               </div>
-                              <span className="text-xs text-slate-500 font-medium w-8">{device.battery}%</span>
+                              <span className="w-8 text-xs font-medium text-slate-500">{device.battery}%</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 font-medium">Cắm điện trực tiếp</span>
+                            <span className="text-xs font-medium text-slate-400">Cắm điện trực tiếp</span>
                           )}
                         </div>
                       </div>
@@ -249,116 +406,125 @@ export function EnvironmentDevices() {
 
             <TabsContent value="settings" className="mt-0">
               {!activeRoomDetail && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {rooms.map((room) => {
-                    const RoomIcon = room.icon;
-                    return (
-                      <button
-                        key={room.name}
-                        onClick={() => setActiveRoomDetail(room.name)}
-                        className="group flex flex-col justify-between text-left rounded-2xl border-2 border-slate-300 bg-white p-6 hover:border-blue-500 hover:shadow-lg hover:ring-2 hover:ring-blue-100 transition-all duration-200"
-                      >
-                        <div className="flex items-start justify-between mb-6 w-full">
-                          <div className="p-3.5 rounded-xl bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                            <RoomIcon className="w-8 h-8" />
+                rooms.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {rooms.map((room) => {
+                      const RoomIcon = room.icon;
+                      return (
+                        <button
+                          key={room.key}
+                          onClick={() => setActiveRoomDetail(room.key)}
+                          className="group flex flex-col justify-between rounded-2xl border-2 border-slate-300 bg-white p-6 text-left transition-all duration-200 hover:border-blue-500 hover:shadow-lg hover:ring-2 hover:ring-blue-100"
+                        >
+                          <div className="mb-6 flex w-full items-start justify-between">
+                            <div className="rounded-xl bg-slate-50 p-3.5 text-slate-600 transition-colors group-hover:bg-blue-50 group-hover:text-blue-600">
+                              <RoomIcon className="h-8 w-8" />
+                            </div>
+                            <Badge className={`px-2 py-0.5 text-[10px] uppercase tracking-wider ${room.occupied ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {room.occupied ? 'Occupied' : 'Empty'}
+                            </Badge>
                           </div>
-                          <Badge className={`text-[10px] uppercase tracking-wider px-2 py-0.5 ${room.occupied ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
-                            {room.occupied ? 'Occupied' : 'Empty'}
-                          </Badge>
-                        </div>
 
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-700">{room.name}</h3>
-                          <p className="text-sm text-slate-500 mt-1">{room.devices.length} Connected Devices</p>
-                        </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-700">{room.name}</h3>
+                            <p className="mt-1 text-sm text-slate-500">{room.devices.length} Connected Devices</p>
+                          </div>
 
-                        <div className="grid grid-cols-2 gap-3 mt-6 pt-4 border-t border-slate-100">
-                          <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <Lightbulb className="w-4 h-4 text-amber-500" />
-                            <span className="font-medium">{room.lights}</span>
+                          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <Lightbulb className="h-4 w-4 text-amber-500" />
+                              <span className="font-medium">{room.lights}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <Thermometer className="h-4 w-4 text-rose-500" />
+                              <span className="font-medium">{room.temp}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <Thermometer className="w-4 h-4 text-rose-500" />
-                            <span className="font-medium">{room.temp}</span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-8 text-center">
+                    <h3 className="text-lg font-semibold text-slate-900">No Room Data Yet</h3>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Room Settings will appear here after the backend returns rooms and devices from the database.
+                    </p>
+                  </div>
+                )
               )}
 
               {activeRoomDetail && activeRoom && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div className="animate-in slide-in-from-bottom-4 fade-in space-y-6 duration-300">
                   <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
                     <Button
                       variant="outline"
                       size="icon"
-                      className="rounded-full h-10 w-10 hover:bg-slate-100"
+                      className="h-10 w-10 rounded-full hover:bg-slate-100"
                       onClick={() => setActiveRoomDetail(null)}
                     >
                       <ChevronLeft className="h-5 w-5 text-slate-600" />
                     </Button>
                     <div>
-                      <h3 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                        <activeRoom.icon className="w-6 h-6 text-blue-600" />
+                      <h3 className="flex items-center gap-3 text-2xl font-bold text-slate-900">
+                        <ActiveRoomIcon className="h-6 w-6 text-blue-600" />
                         {activeRoom.name}
                       </h3>
-                      <p className="text-sm text-slate-500 mt-1">Điều khiển thiết bị và thông số không gian.</p>
+                      <p className="mt-1 text-sm text-slate-500">Điều khiển thiết bị và thông số không gian.</p>
                     </div>
                   </div>
 
                   {errorMessage && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-                      <p className="font-semibold"> Lỗi:</p>
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      <p className="font-semibold">Lỗi:</p>
                       <p>{errorMessage}</p>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {activeRoom.devices.map((device) => {
                       const DeviceIcon = device.icon;
-                      const isOn = roomDeviceStates[activeRoom.name][device.name];
-                      const deviceKey = `${activeRoom.name}-${device.name}`;
+                      const isOn = roomDeviceStates[activeRoom.key]?.[device.key] ?? true;
+                      const deviceKey = `${activeRoom.key}-${device.key}`;
                       const isLoading = loadingDevices.has(deviceKey);
 
                       return (
                         <div
-                          key={device.name}
+                          key={device.key}
                           className={`flex flex-col gap-4 rounded-xl border-2 p-5 transition-all duration-200 ${
-                            isOn ? 'bg-blue-50/50 border-blue-300 shadow-sm' : 'bg-white border-slate-300'
+                            isOn ? 'border-blue-300 bg-blue-50/50 shadow-sm' : 'border-slate-300 bg-white'
                           }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-4">
-                              <div className={`p-3 rounded-full transition-colors ${isOn ? 'bg-blue-100 text-blue-600 shadow-inner' : 'bg-slate-100 text-slate-400'}`}>
-                                <DeviceIcon className="w-6 h-6" />
+                              <div className={`rounded-full p-3 transition-colors ${isOn ? 'bg-blue-100 text-blue-600 shadow-inner' : 'bg-slate-100 text-slate-400'}`}>
+                                <DeviceIcon className="h-6 w-6" />
                               </div>
                               <div>
                                 <p className={`text-lg font-semibold ${isOn ? 'text-slate-900' : 'text-slate-600'}`}>{device.name}</p>
-                                <p className="text-sm text-slate-500 mt-0.5">{device.type}</p>
+                                <p className="mt-0.5 text-sm text-slate-500">{device.type}</p>
                               </div>
                             </div>
 
                             <Switch
                               checked={isOn}
                               disabled={isLoading}
-                              onCheckedChange={() => toggleRoomDevice(activeRoom.name, device.name)}
+                              onCheckedChange={() => toggleRoomDevice(activeRoom.key, device)}
                               className="data-[state=checked]:bg-blue-600"
                             />
                           </div>
 
-                          <div className="flex items-center justify-between pt-4 border-t border-slate-200/60 mt-2">
-                            <Badge variant="outline" className={`${isOn ? 'bg-blue-100 text-blue-700 border-none' : 'bg-slate-100 text-slate-500 border-none'}`}>
+                          <div className="mt-2 flex items-center justify-between border-t border-slate-200/60 pt-4">
+                            <Badge variant="outline" className={`${isOn ? 'border-none bg-blue-100 text-blue-700' : 'border-none bg-slate-100 text-slate-500'}`}>
                               {isLoading ? 'Đang xử lý...' : isOn ? 'Đang hoạt động' : 'Đang tắt'}
                             </Badge>
                             <Button
                               variant="secondary"
                               size="sm"
-                              className={`gap-2 ${isOn ? 'bg-white hover:bg-blue-100 text-blue-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+                              className={`gap-2 ${isOn ? 'bg-white text-blue-700 hover:bg-blue-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                               disabled={isLoading}
                             >
-                              <Settings className="w-4 h-4" />
+                              <Settings className="h-4 w-4" />
                               Configure
                             </Button>
                           </div>
@@ -368,7 +534,6 @@ export function EnvironmentDevices() {
                   </div>
                 </div>
               )}
-
             </TabsContent>
           </CardContent>
         </Tabs>

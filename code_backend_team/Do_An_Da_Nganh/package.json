@@ -11,6 +11,7 @@
         "stop:bg": "node scripts/stop-bg.js",
         "status:bg": "node scripts/status-bg.js",
         "fix:passwords": "node scripts/migrate-legacy-passwords.js",
+        "seed:devices": "node scripts/seed-device-control-sample.js",
         "prisma:generate": "prisma generate",
         "prisma:migrate": "prisma migrate dev",
         "prisma:studio": "prisma studio",

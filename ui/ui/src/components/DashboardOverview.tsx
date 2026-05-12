@@ -35,6 +35,11 @@ interface EnvironmentReading {
   time_created: string;
 }
 
+interface TrendPoint {
+  time: string;
+  value: number;
+}
+
 function formatMetric(metric?: SnapshotMetric | null, suffix = '', digits = 1) {
   if (typeof metric?.value !== 'number') {
     return 'N/A';
@@ -45,32 +50,82 @@ function formatMetric(metric?: SnapshotMetric | null, suffix = '', digits = 1) {
 
 function formatTimeLabel(value: string) {
   const date = new Date(value);
+
   return date.toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
 }
 
+function buildMetricTrend(
+  history: EnvironmentReading[],
+  metric: 'temp' | 'humidity' | 'gas_level' | 'bright',
+) {
+  return history
+    .filter((item) => typeof item[metric] === 'number')
+    .slice(-10)
+    .map((item) => ({
+      time: formatTimeLabel(item.time_created),
+      value: item[metric] as number,
+    }));
+}
+
+function buildAdaptiveDomain(
+  data: TrendPoint[],
+  options?: {
+    minSpan?: number;
+    paddingRatio?: number;
+  },
+): [number, number] | ['auto', 'auto'] {
+  if (data.length === 0) {
+    return ['auto', 'auto'];
+  }
+
+  const values = data.map((item) => item.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = maxValue - minValue;
+  const minSpan = options?.minSpan ?? 1;
+  const paddingRatio = options?.paddingRatio ?? 0.2;
+  const effectiveRange = Math.max(range, minSpan);
+  const padding = Math.max(effectiveRange * paddingRatio, minSpan * 0.15);
+  const domainMin = Math.max(0, minValue - padding);
+  const domainMax = maxValue + padding;
+
+  return [Number(domainMin.toFixed(2)), Number(domainMax.toFixed(2))];
+}
+
 export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
   const [snapshot, setSnapshot] = useState<EnvironmentSnapshot | null>(null);
   const [history, setHistory] = useState<EnvironmentReading[]>([]);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [snapshotResponse, historyResponse] = await Promise.all([
           api.getEnvironmentSnapshot(),
-          api.getEnvironmentHistory({ limit: 20 }),
+          api.getEnvironmentHistory({ limit: 120 }),
         ]);
 
         setSnapshot(snapshotResponse.data?.data || null);
         setHistory((historyResponse.data?.data || []).slice().reverse());
+        setLastUpdatedAt(new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }));
       } catch (error) {
         console.error('Failed to fetch environment data:', error);
       }
     };
 
     fetchData();
+    const intervalId = window.setInterval(fetchData, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const quickStats = [
@@ -100,13 +155,14 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
     },
   ];
 
-  const climateTrendData = history.map((item) => ({
-    time: formatTimeLabel(item.time_created),
-    temperature: item.temp,
-    humidity: item.humidity,
-    gas: item.gas_level,
-    light: item.bright,
-  }));
+  const temperatureTrendData = buildMetricTrend(history, 'temp');
+  const humidityTrendData = buildMetricTrend(history, 'humidity');
+  const gasTrendData = buildMetricTrend(history, 'gas_level');
+  const lightTrendData = buildMetricTrend(history, 'bright');
+  const temperatureDomain = buildAdaptiveDomain(temperatureTrendData, { minSpan: 1.5, paddingRatio: 0.18 });
+  const humidityDomain = buildAdaptiveDomain(humidityTrendData, { minSpan: 4, paddingRatio: 0.18 });
+  const gasDomain = buildAdaptiveDomain(gasTrendData, { minSpan: 20, paddingRatio: 0.15 });
+  const lightDomain = buildAdaptiveDomain(lightTrendData, { minSpan: 30, paddingRatio: 0.15 });
 
   return (
     <div className="space-y-6">
@@ -117,7 +173,7 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
         </div>
         <div className="flex items-center gap-2">
           <Badge className="bg-slate-100 text-slate-700">
-            {history.length > 0 ? 'Live data from DB' : 'Waiting for sensor data'}
+            {history.length > 0 ? `Refresh every 30s${lastUpdatedAt ? ` · ${lastUpdatedAt}` : ''}` : 'Waiting for sensor data'}
           </Badge>
         </div>
       </div>
@@ -150,17 +206,17 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={climateTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={temperatureTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#fb7185" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#fb7185" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} interval={1} minTickGap={20} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} domain={temperatureDomain} tickCount={5} />
                   <Tooltip formatter={(value: number) => [`${value}°C`, 'Temperature']} />
-                  <Area type="monotone" dataKey="temperature" stroke="#fb7185" fillOpacity={1} fill="url(#tempGradient)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="value" stroke="#fb7185" fillOpacity={1} fill="url(#tempGradient)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -175,17 +231,17 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={climateTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={humidityTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="humidityGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} interval={1} minTickGap={20} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} domain={humidityDomain} tickCount={5} />
                   <Tooltip formatter={(value: number) => [`${value}% RH`, 'Humidity']} />
-                  <Area type="monotone" dataKey="humidity" stroke="#38bdf8" fillOpacity={1} fill="url(#humidityGradient)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="value" stroke="#38bdf8" fillOpacity={1} fill="url(#humidityGradient)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -200,17 +256,17 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={climateTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={gasTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gasGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} interval={1} minTickGap={20} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} domain={gasDomain} tickCount={5} />
                   <Tooltip formatter={(value: number) => [`${value} ppm`, 'Gas Level']} />
-                  <Area type="monotone" dataKey="gas" stroke="#a78bfa" fillOpacity={1} fill="url(#gasGradient)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="value" stroke="#a78bfa" fillOpacity={1} fill="url(#gasGradient)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -225,17 +281,17 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={climateTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={lightTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="lightGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} interval={1} minTickGap={20} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} domain={lightDomain} tickCount={5} />
                   <Tooltip formatter={(value: number) => [`${value} lux`, 'Light Intensity']} />
-                  <Area type="monotone" dataKey="light" stroke="#fbbf24" fillOpacity={1} fill="url(#lightGradient)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="value" stroke="#fbbf24" fillOpacity={1} fill="url(#lightGradient)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

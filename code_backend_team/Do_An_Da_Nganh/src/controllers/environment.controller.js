@@ -58,6 +58,15 @@ async function latestByRoom(req, res, next) {
   }
 }
 
+async function rooms(req, res, next) {
+  try {
+    const data = await environmentService.listRooms();
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function snapshot(req, res, next) {
   try {
     const { roomId, scanLimit } = req.query;
@@ -73,5 +82,6 @@ module.exports = {
   latest,
   history,
   latestByRoom,
+  rooms,
   snapshot
 };
