@@ -29,6 +29,7 @@ export const api = {
       email: data?.email,
       password: data?.password,
     }),
+  getCurrentUser: () => apiClient.get('/users/me'),
 
   // Devices
   getDevices: () => apiClient.get('/devices'),
@@ -39,6 +40,10 @@ export const api = {
 
   // Environment
   getEnvironment: () => apiClient.get('/environment'),
+  getEnvironmentLatest: (params?: Record<string, any>) => apiClient.get('/environment/latest', { params }),
+  getEnvironmentSnapshot: (params?: Record<string, any>) => apiClient.get('/environment/snapshot', { params }),
+  getEnvironmentHistory: (params?: Record<string, any>) => apiClient.get('/environment/history', { params }),
+  getEnvironmentRoomsLatest: (params?: Record<string, any>) => apiClient.get('/environment/rooms/latest', { params }),
   
   // Users
   getUsers: () => apiClient.get('/users'),

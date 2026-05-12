@@ -10,6 +10,7 @@ router.get("/", authMiddleware, environmentController.listLatest);
 router.get("/latest", authMiddleware, environmentController.latest);
 router.get("/snapshot", authMiddleware, environmentController.snapshot);
 router.get("/history", authMiddleware, environmentController.history);
+router.get("/rooms", authMiddleware, environmentController.rooms);
 router.get("/rooms/latest", authMiddleware, environmentController.latestByRoom);
 
 module.exports = router;

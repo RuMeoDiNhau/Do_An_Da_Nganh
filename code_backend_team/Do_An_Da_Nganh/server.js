@@ -2,7 +2,6 @@
 
 require("dotenv").config();
 const http = require("http");
-
 const { spawn } = require("child_process");
 
 const app = require("./src/app");
@@ -10,21 +9,55 @@ const { connectDb, disconnectDb } = require("./src/config/database");
 const { initWebSocketServer } = require("./src/iot/wsHandler");
 const { initMqtt } = require("./src/iot/mqttHandler");
 const logger = require("./src/utils/logger");
-logger.info("AI FastAPI Server...");
-  const pythonServer = spawn("uvicorn", ["server:app", "--host", "0.0.0.0", "--port", "8000"], {
-    cwd: "./ai_sever", 
-    shell: true,
-    stdio: "inherit" 
-  });
-function envFlag(name) {
-  const v = String(process.env[name] || "").toLowerCase();
+
+function envFlag(name, defaultValue = false) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw === "") {
+    return defaultValue;
+  }
+
+  const v = String(raw).toLowerCase();
   return v === "1" || v === "true" || v === "yes";
+}
+
+function startAiServerIfEnabled() {
+  if (!envFlag("REQUIRE_AI", false)) {
+    logger.info("AI server disabled (REQUIRE_AI=false)");
+    return null;
+  }
+
+  logger.info("Starting AI FastAPI server...");
+
+  const isWindows = process.platform === "win32";
+  const command = isWindows ? "cmd" : "uvicorn";
+  const args = isWindows
+    ? ["/c", "uvicorn server:app --host 0.0.0.0 --port 8000"]
+    : ["server:app", "--host", "0.0.0.0", "--port", "8000"];
+
+  const child = spawn(command, args, {
+    cwd: "./ai_sever",
+    shell: false,
+    stdio: "inherit",
+  });
+
+  child.on("error", (err) => {
+    logger.warn({ err }, "AI server failed to start");
+  });
+
+  child.on("exit", (code) => {
+    if (code !== 0) {
+      logger.warn({ code }, "AI server exited");
+    }
+  });
+
+  return child;
 }
 
 async function main() {
   const port = Number(process.env.PORT || 3001);
   const requireDb = envFlag("REQUIRE_DB");
   const requireMqtt = envFlag("REQUIRE_MQTT");
+  const pythonServer = startAiServerIfEnabled();
 
   if (requireDb) {
     try {
@@ -60,22 +93,22 @@ async function main() {
 
   const shutdown = async () => {
     logger.info("Shutting down");
-    if (process.platform === "win32") {
-        require("child_process").exec('taskkill /F /IM python.exe /T', (err) => {
-            // Ép thoát Node.js ngay sau khi chém Python, không chờ đợi
-            process.exit(0);
-        });
-    } else {
-        if (pythonServer) pythonServer.kill("SIGKILL");
-        process.exit(0);
+
+    if (pythonServer && !pythonServer.killed) {
+      try {
+        pythonServer.kill("SIGTERM");
+      } catch (err) {
+        logger.warn({ err }, "AI server shutdown failed");
+      }
     }
+
     try {
       await disconnectDb();
     } catch (err) {
       logger.warn({ err }, "DB disconnect failed");
     }
-    // server.close(() => process.exit(0));
-    process.exit(0);
+
+    server.close(() => process.exit(0));
   };
 
   process.on("SIGINT", shutdown);
@@ -83,7 +116,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error(err);
   process.exitCode = 1;
 });

@@ -217,6 +217,18 @@ async function getLatestReadingsByRoom({ scanLimit = 500 } = {}) {
   return latestByRoom;
 }
 
+async function listRooms() {
+  return prisma.rooms.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      r_id: true,
+      name: true,
+      room_type: true,
+      u_id: true
+    }
+  });
+}
+
 async function getLatestSnapshot({ roomId = null, scanLimit = 200 } = {}) {
   const readings = await prisma.environment.findMany({
     where: buildEnvironmentWhere({ roomId }),
@@ -295,5 +307,6 @@ module.exports = {
   getLatestReading,
   getReadingHistory,
   getLatestReadingsByRoom,
+  listRooms,
   getLatestSnapshot
 };
