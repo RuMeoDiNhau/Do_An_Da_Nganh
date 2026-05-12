@@ -27,8 +27,8 @@ Hệ thống AI được thiết kế chạy song song nhưng độc lập với
 
 ## 4. Cải Tiến Logic AI
 - **Cơ chế Cooldown (Chống Spam):** Khi mở cửa thành công, AI tự động vào trạng thái nghỉ (Sleep) 30 giây, không gửi thêm request thừa xuống server tránh nghẽn MQTT.
-- **Ngưỡng an toàn (Confidence Threshold):** SVM chỉ chấp nhận mở cửa khi độ tin cậy `> 0.85` và tên thuộc danh sách `ALLOWED_USERS`, chặn đứng việc nhận nhầm người lạ. (đang nghiên cứu chắc là để thấp hơn)
-- **UI/UX trên Camera:** Lật luồng ảnh như soi gương để người dùng dễ quan sát. Gắn thông báo thời gian đếm ngược trực tiếp lên khung hình (`Unlocking in 1.5s...`).
+- **Ngưỡng an toàn (Confidence Threshold):** SVM chỉ chấp nhận mở cửa khi độ tin cậy `> 0.75` và tên thuộc danh sách `ALLOWED_USERS`, chặn đứng việc nhận nhầm người lạ. (đang nghiên cứu chắc là để thấp hơn)
+- **UI/UX trên Camera:** Lật luồng ảnh như soi gương để người dùng dễ quan sát. Gắn thông báo thời gian đếm ngược trực tiếp lên khung hình (`Unlocking in 1s...`).
 
 
 hiện tại mới chỉ là mở cửa, đang nghiên cứu gửi thêm các preferences mới
@@ -53,3 +53,5 @@ pip install fastapi uvicorn opencv-python numpy mediapipe keras-facenet tensorfl
 Lưu ý: Đảm bảo file svm_model.pkl (hiện tại chỉ có tui còn svm_model_+huy+khang.pkl thì có thêm huy với khang nma tui chưa test thử hoạt động ngon không) và blaze_face_short_range.tflite đã có mặt trong thư mục này.
 
 sau đó chạy như bình thường mở 2 terminal 1 be 1 fe là được vì tui đã cấu hình chạy fast api vào cái server.js r
+
+Đã nhận diện được full thành viên

@@ -27,7 +27,7 @@ ml_models = {"svm": None}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    ml_models["svm"] = joblib.load("svm_model_+huy+khang.pkl")
+    ml_models["svm"] = joblib.load("svm_model_full.pkl")
     yield
     ml_models.clear()
 
@@ -49,14 +49,14 @@ def gen_frames():
     cap = cv2.VideoCapture(2) # 2 là Cam điện thoại 1 là cam lap top 0 là cam phần mềm irinium webcam
     
     debounce_start_time = None
-    REQUIRED_TIME = 1.5
+    REQUIRED_TIME = 1
     
     # 1. THÊM BIẾN QUẢN LÝ THỜI GIAN CHỜ (COOLDOWN)
     last_unlock_time = 0  
     COOLDOWN_TIME = 30.0 # 30 giây
     
     # 2. KHAI BÁO DANH SÁCH NGƯỜI NHÀ ĐƯỢC PHÉP VÀO
-    ALLOWED_USERS = ["nguyen"] # Thay bằng các class (tên) bạn đã train
+    ALLOWED_USERS = ["nguyen","bao","huygia","thien","khang"] # Thay bằng các class (tên) bạn đã train
     try:
         while True:
             success, frame = cap.read()
@@ -85,8 +85,8 @@ def gen_frames():
                         box_color = (0, 0, 255)
                         text = f"DENIED: {name.upper()} ({confidence:.2f})"
                         
-                        # 3. NÂNG NGƯỠNG CONFIDENCE > 0.85 VÀ KIỂM TRA ĐÚNG NGƯỜI NHÀ KHÔNG
-                        if confidence > 0.85 and name.lower() in ALLOWED_USERS:
+                        # 3. NÂNG NGƯỠNG CONFIDENCE > 0.75 VÀ KIỂM TRA ĐÚNG NGƯỜI NHÀ KHÔNG
+                        if confidence > 0.75 and name.lower() in ALLOWED_USERS:
                             if debounce_start_time is None: 
                                 debounce_start_time = time.time()
                             elapsed = time.time() - debounce_start_time

@@ -17,6 +17,6 @@ Thuộc tính `intent` đã được đồng bộ để khớp chính xác với
 const VALID_COMMANDS = [
   { intent: "bật đèn", keywords: ["bật đèn", "mở đèn", "sáng đèn"] },
   { intent: "tắt đèn", keywords: ["tắt đèn", "tối đèn"] },
-  { intent: "bật quạt", keywords: ["bật quạt", "mở quạt", "quay quạt"] },
-  { intent: "tắt quạt", keywords: ["tắt quạt", "ngừng quạt"] }
+  { intent: "bật quạt", keywords: ["bật quạt", "mở quạt"] },
+  { intent: "tắt quạt", keywords: ["tắt quạt", "đóng quạt"] }
 ];
