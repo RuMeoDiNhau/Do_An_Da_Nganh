@@ -4,9 +4,9 @@ import { Card, CardContent, CardHeader } from './ui/card';
 import { Badge } from './ui/badge';
 import { Switch } from './ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
-import { 
-  Router, Thermometer, Lock, Lightbulb, Camera, 
-  Bot, Droplets, Speaker, ShieldAlert, Battery, 
+import {
+  Router, Thermometer, Lock, Lightbulb, Camera,
+  Bot, Droplets, Speaker, ShieldAlert, Battery,
   BatteryFull, BatteryLow, Wifi, WifiOff, Power,
   Wind, ChefHat, Bed, Briefcase, ChevronLeft, Settings
 } from 'lucide-react';
@@ -75,9 +75,8 @@ const rooms = [
 ];
 
 export function EnvironmentDevices() {
-  // Quản lý trạng thái: null nghĩa là đang xem danh sách phòng. Nếu có tên phòng, nghĩa là đang xem chi tiết phòng đó.
   const [activeRoomDetail, setActiveRoomDetail] = useState<string | null>(null);
-  
+
   const [roomDeviceStates, setRoomDeviceStates] = useState(() => {
     return rooms.reduce((acc, room) => {
       acc[room.name] = room.devices.reduce((deviceMap, device) => {
@@ -110,8 +109,7 @@ export function EnvironmentDevices() {
   const toggleRoomDevice = async (roomName: string, deviceName: string) => {
     const deviceKey = `${roomName}-${deviceName}`;
     const currentState = roomDeviceStates[roomName][deviceName];
-    
-    // Optimistically update UI
+
     setRoomDeviceStates((prev) => ({
       ...prev,
       [roomName]: {
@@ -129,7 +127,6 @@ export function EnvironmentDevices() {
 
       await api.controlDevice(deviceId, { action });
     } catch (error) {
-      // Revert on error
       setRoomDeviceStates((prev) => ({
         ...prev,
         [roomName]: {
@@ -159,7 +156,6 @@ export function EnvironmentDevices() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Device Control</h2>
@@ -174,34 +170,31 @@ export function EnvironmentDevices() {
       <Card className="border-2 border-slate-300 shadow-md">
         <Tabs defaultValue="connected" className="w-full">
           <CardHeader className="bg-slate-50 border-b border-slate-100 rounded-t-xl pb-4">
-            {/* Thanh Tab được làm to hơn, rộng hơn để dễ bấm */}
             <TabsList className="grid w-full grid-cols-2 h-14 bg-slate-200/50 p-1.5 rounded-xl">
-              <TabsTrigger 
-                value="connected" 
+              <TabsTrigger
+                value="connected"
                 className="rounded-lg text-base font-medium py-2 data-[state=active]:shadow-sm data-[state=active]:bg-white"
-                onClick={() => setActiveRoomDetail(null)} // Reset detail view when switching tabs
+                onClick={() => setActiveRoomDetail(null)}
               >
                 Connected Devices
               </TabsTrigger>
-              <TabsTrigger 
-                value="settings" 
+              <TabsTrigger
+                value="settings"
                 className="rounded-lg text-base font-medium py-2 data-[state=active]:shadow-sm data-[state=active]:bg-white"
               >
                 Room Settings
               </TabsTrigger>
             </TabsList>
           </CardHeader>
-          
+
           <CardContent className="p-6">
-            
-            {/* Tab: Connected Devices */}
             <TabsContent value="connected" className="mt-0">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {connectedDevices.map((device) => {
                   const DeviceIcon = device.icon;
                   const isOnline = device.status === 'Online';
                   const isCharging = device.status === 'Charging';
-                  
+
                   return (
                     <div
                       key={device.name}
@@ -213,7 +206,7 @@ export function EnvironmentDevices() {
                         </div>
                         <Badge
                           className={`text-xs px-2.5 py-0.5 font-medium flex items-center gap-1.5 ${
-                            isOnline 
+                            isOnline
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : isCharging
                               ? 'bg-amber-50 text-amber-700 border-amber-200'
@@ -224,7 +217,7 @@ export function EnvironmentDevices() {
                           {device.status}
                         </Badge>
                       </div>
-                      
+
                       <div>
                         <p className="text-base font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">{device.name}</p>
                         <p className="text-xs text-slate-500 font-medium mb-4">{device.type}</p>
@@ -236,8 +229,8 @@ export function EnvironmentDevices() {
                           {device.battery !== null ? (
                             <div className="flex items-center gap-2">
                               <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full ${device.battery > 30 ? 'bg-emerald-500' : 'bg-red-500'}`} 
+                                <div
+                                  className={`h-full rounded-full ${device.battery > 30 ? 'bg-emerald-500' : 'bg-red-500'}`}
                                   style={{ width: `${device.battery}%` }}
                                 />
                               </div>
@@ -254,10 +247,7 @@ export function EnvironmentDevices() {
               </div>
             </TabsContent>
 
-            {/* Tab: Room Settings */}
             <TabsContent value="settings" className="mt-0">
-              
-              {/* CHẾ ĐỘ 1: XEM DANH SÁCH CÁC PHÒNG */}
               {!activeRoomDetail && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {rooms.map((room) => {
@@ -276,7 +266,7 @@ export function EnvironmentDevices() {
                             {room.occupied ? 'Occupied' : 'Empty'}
                           </Badge>
                         </div>
-                        
+
                         <div>
                           <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-700">{room.name}</h3>
                           <p className="text-sm text-slate-500 mt-1">{room.devices.length} Connected Devices</p>
@@ -298,14 +288,12 @@ export function EnvironmentDevices() {
                 </div>
               )}
 
-              {/* CHẾ ĐỘ 2: XEM CHI TIẾT THIẾT BỊ TRONG PHÒNG ĐÃ CHỌN */}
               {activeRoomDetail && activeRoom && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                  {/* Nút Back và Tiêu đề */}
                   <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
+                    <Button
+                      variant="outline"
+                      size="icon"
                       className="rounded-full h-10 w-10 hover:bg-slate-100"
                       onClick={() => setActiveRoomDetail(null)}
                     >
@@ -320,7 +308,6 @@ export function EnvironmentDevices() {
                     </div>
                   </div>
 
-                  {/* Error Message */}
                   {errorMessage && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
                       <p className="font-semibold"> Lỗi:</p>
@@ -328,14 +315,13 @@ export function EnvironmentDevices() {
                     </div>
                   )}
 
-                  {/* Danh sách thiết bị */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activeRoom.devices.map((device) => {
                       const DeviceIcon = device.icon;
                       const isOn = roomDeviceStates[activeRoom.name][device.name];
                       const deviceKey = `${activeRoom.name}-${device.name}`;
                       const isLoading = loadingDevices.has(deviceKey);
-                      
+
                       return (
                         <div
                           key={device.name}
@@ -353,23 +339,22 @@ export function EnvironmentDevices() {
                                 <p className="text-sm text-slate-500 mt-0.5">{device.type}</p>
                               </div>
                             </div>
-                            
-                            <Switch 
+
+                            <Switch
                               checked={isOn}
                               disabled={isLoading}
                               onCheckedChange={() => toggleRoomDevice(activeRoom.name, device.name)}
                               className="data-[state=checked]:bg-blue-600"
                             />
                           </div>
-                          
-                          {/* Dải nút Configure */}
+
                           <div className="flex items-center justify-between pt-4 border-t border-slate-200/60 mt-2">
                             <Badge variant="outline" className={`${isOn ? 'bg-blue-100 text-blue-700 border-none' : 'bg-slate-100 text-slate-500 border-none'}`}>
                               {isLoading ? 'Đang xử lý...' : isOn ? 'Đang hoạt động' : 'Đang tắt'}
                             </Badge>
-                            <Button 
-                              variant="secondary" 
-                              size="sm" 
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               className={`gap-2 ${isOn ? 'bg-white hover:bg-blue-100 text-blue-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
                               disabled={isLoading}
                             >

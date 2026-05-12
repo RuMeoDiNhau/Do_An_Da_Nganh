@@ -14,6 +14,10 @@ import { cn } from './ui/utils';
 interface NavigationSidebarProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
+  user: {
+    name: string;
+    role: 'Admin' | 'Member';
+  };
 }
 
 const navigationItems = [
@@ -21,10 +25,10 @@ const navigationItems = [
   { id: 'environment', label: 'Device Control', icon: Lightbulb },
   { id: 'access', label: 'Security', icon: Shield },
   // { id: 'safety', label: 'Safety', icon: AlertTriangle },
-  // { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
-export function NavigationSidebar({ activeSection, onSectionChange }: NavigationSidebarProps) {
+export function NavigationSidebar({ activeSection, onSectionChange, user }: NavigationSidebarProps) {
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 p-6 flex flex-col">
       {/* Header */}
@@ -38,8 +42,8 @@ export function NavigationSidebar({ activeSection, onSectionChange }: Navigation
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium">Hello, Khang</p>
-            <p className="text-xs text-slate-400">Admin</p>
+            <p className="text-sm font-medium">Hello, {user.name}</p>
+            <p className="text-xs text-slate-400">{user.role}</p>
           </div>
         </div>
       </div>

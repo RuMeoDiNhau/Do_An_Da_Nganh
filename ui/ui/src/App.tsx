@@ -1,4 +1,4 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mic, X } from 'lucide-react';
 import { DashboardOverview } from './components/DashboardOverview';
 import { EnvironmentDevices } from './components/ControlDevices';
@@ -8,8 +8,14 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
 import { LoginPage } from './components/LoginPage';
 import { TopBar } from './components/TopBar';
+import { api } from './services/api';
 
 type RoleType = 'Admin' | 'Member';
+type AuthUser = {
+  username?: string;
+  email?: string | null;
+  role?: string;
+};
 
 const VALID_COMMANDS = [
   { intent: "bật đèn", keywords: ["bật đèn", "mở đèn", "sáng đèn"] },
@@ -17,24 +23,56 @@ const VALID_COMMANDS = [
   { intent: "bật quạt", keywords: ["bật quạt", "mở quạt", "quay quạt"] },
   { intent: "tắt quạt", keywords: ["tắt quạt", "ngừng quạt"] }
 
-];const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+];
+
+const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+function mapRole(role?: string): RoleType {
+  return String(role || '').toLowerCase() === 'admin' ? 'Admin' : 'Member';
+}
+
+function mapUser(user?: AuthUser | null) {
+  return {
+    name: user?.username || user?.email || 'User',
+    role: mapRole(user?.role),
+  };
+}
 
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState({ name: 'Khang', role: 'Admin' as RoleType });
+  const [user, setUser] = useState({ name: 'User', role: 'Member' as RoleType });
 
   const [listening, setListening] = useState(false);
   const [speechText, setSpeechText] = useState("");
   const [detectedCommand, setDetectedCommand] = useState("");
 
-  const handleLogin = (username: string) => {
-    const normalized = username.trim().toLowerCase();
-    const role = normalized === 'khang' || normalized.includes('admin') ? 'Admin' : 'Member';
-    setUser({ name: username || 'Khang', role });
+  const handleLogin = (loggedInUser?: AuthUser) => {
+    setUser(mapUser(loggedInUser));
     setIsLoggedIn(true);
   };
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+
+    if (!token) {
+      return;
+    }
+
+    const bootstrapUser = async () => {
+      try {
+        const response = await api.getCurrentUser();
+        setUser(mapUser(response.data?.user));
+        setIsLoggedIn(true);
+      } catch (error) {
+        console.error('Failed to restore user session:', error);
+        localStorage.removeItem('authToken');
+      }
+    };
+
+    bootstrapUser();
+  }, []);
 
   useEffect(() => {
     if (!SpeechRecognition) return;
@@ -119,8 +157,8 @@ export default function App() {
         return <AccessSecurity role={user.role} />;
       // case 'safety':
       //   return <SafetyOverview />;
-      // case 'settings':
-      //   return <SettingsPanel />;
+      case 'settings':
+        return <SettingsPanel />;
       default:
         return <DashboardOverview onNavigate={setActiveSection} />;
     }
@@ -132,7 +170,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <NavigationSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+      <NavigationSidebar activeSection={activeSection} onSectionChange={setActiveSection} user={user} />
       <main className="flex-1 min-h-screen p-6 ml-64 relative">
         <div className="max-w-7xl mx-auto space-y-6">
           <TopBar
@@ -140,7 +178,11 @@ export default function App() {
             role={user.role}
             listening={listening}
             onToggleListening={() => setListening((prev) => !prev)}
-            onLogout={() => setIsLoggedIn(false)}
+            onLogout={() => {
+              localStorage.removeItem('authToken');
+              setIsLoggedIn(false);
+              setUser({ name: 'User', role: 'Member' });
+            }}
           />
           {renderActiveSection()}
         </div>

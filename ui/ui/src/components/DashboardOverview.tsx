@@ -1,135 +1,136 @@
-import React from 'react';
-import { 
-  Lightbulb, 
-  Thermometer, 
-  Shield, 
-  Zap, 
-  Home,
-  TrendingUp,
-  AlertTriangle,
-  Check
+import React, { useEffect, useState } from 'react';
+import {
+  Lightbulb,
+  Thermometer,
+  Shield,
+  Zap,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Switch } from './ui/switch';
-import { Progress } from './ui/progress';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { useEffect, useState } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../services/api';
 
 interface DashboardOverviewProps {
   onNavigate: (section: string) => void;
 }
 
+interface SnapshotMetric {
+  value: number | null;
+  capturedAt?: string;
+}
+
+interface EnvironmentSnapshot {
+  temperature?: SnapshotMetric | null;
+  humidity?: SnapshotMetric | null;
+  light?: SnapshotMetric | null;
+  gas?: SnapshotMetric | null;
+}
+
+interface EnvironmentReading {
+  en_id: string | number;
+  temp: number | null;
+  humidity: number | null;
+  bright: number | null;
+  gas_level: number | null;
+  time_created: string;
+}
+
+function formatMetric(metric?: SnapshotMetric | null, suffix = '', digits = 1) {
+  if (typeof metric?.value !== 'number') {
+    return 'N/A';
+  }
+
+  return `${metric.value.toFixed(digits)}${suffix}`;
+}
+
+function formatTimeLabel(value: string) {
+  const date = new Date(value);
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
-  const [sensors, setSensors] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [snapshot, setSnapshot] = useState<EnvironmentSnapshot | null>(null);
+  const [history, setHistory] = useState<EnvironmentReading[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await api.getEnvironment();
-        setSensors(response.data);
+        const [snapshotResponse, historyResponse] = await Promise.all([
+          api.getEnvironmentSnapshot(),
+          api.getEnvironmentHistory({ limit: 20 }),
+        ]);
+
+        setSnapshot(snapshotResponse.data?.data || null);
+        setHistory((historyResponse.data?.data || []).slice().reverse());
       } catch (error) {
         console.error('Failed to fetch environment data:', error);
-      } finally {
-        setLoading(false);
       }
     };
+
     fetchData();
   }, []);
+
   const quickStats = [
-    { 
-      label: 'Temperature', 
-      value: sensors?.temperature ? `${sensors.temperature}°C` : '32.2°C', 
-      icon: Thermometer, 
-      color: 'text-[#0033CC]' 
+    {
+      label: 'Temperature',
+      value: formatMetric(snapshot?.temperature, '°C'),
+      icon: Thermometer,
+      color: 'text-[#0033CC]',
     },
-    { 
-      label: 'Humidity', 
-      value: sensors?.humidity ? `${sensors.humidity}%` : '72.1%', 
-      icon: Shield, 
-      color: 'text-[#0033CC]' 
+    {
+      label: 'Humidity',
+      value: formatMetric(snapshot?.humidity, '%'),
+      icon: Shield,
+      color: 'text-[#0033CC]',
     },
-    { 
-      label: 'Light', 
-      value: sensors?.light ? `${sensors.light}%` : '75%', 
-      icon: Lightbulb, 
-      color: 'text-[#0033CC]' 
+    {
+      label: 'Light',
+      value: formatMetric(snapshot?.light, ' lux', 0),
+      icon: Lightbulb,
+      color: 'text-[#0033CC]',
     },
-    { 
-      label: 'Gas', 
-      value: sensors?.gas ? `${sensors.gas} ppm` : '42 ppm', 
-      icon: Zap, 
-      color: 'text-[#0033CC]' 
+    {
+      label: 'Gas',
+      value: formatMetric(snapshot?.gas, ' ppm', 0),
+      icon: Zap,
+      color: 'text-[#0033CC]',
     },
   ];
 
-
-
-  const climateTrendData = [
-    { time: '8:30 AM', temperature: 29.5, humidity: 48, gas: 38, light: 50 },
-    { time: '8:35 AM', temperature: 30, humidity: 70, gas: 40, light: 200 },
-    { time: '8:40 AM', temperature: 30.7, humidity: 77, gas: 42, light: 310 },
-    { time: '8:45 AM', temperature: 30.2, humidity: 53, gas: 41, light: 280 },
-    { time: '8:50 AM', temperature: 31.3, humidity: 53, gas: 39, light: 150 },
-    { time: '8:55 AM', temperature: 31.3, humidity: 58, gas: 37, light: 80 },
-  ];
-
-  const energyChartData = [
-    { category: 'Lighting', usage: 0.8, percentage: 33 },
-    { category: 'AC', usage: 1.2, percentage: 50 },
-    { category: 'Appliances', usage: 0.4, percentage: 17 },
-  ];
-
-  const pieData = energyChartData.map(item => ({
-    name: item.category,
-    value: item.percentage,
-    usage: item.usage
+  const climateTrendData = history.map((item) => ({
+    time: formatTimeLabel(item.time_created),
+    temperature: item.temp,
+    humidity: item.humidity,
+    gas: item.gas_level,
+    light: item.bright,
   }));
-
-  const COLORS = ['#8884d8', '#82ca9d', '#ffc658'];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="mb-2 text-3xl font-semibold text-slate-900">Overview</h1>
           <p className="text-sm text-slate-500">Quickly monitor your home status.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="bg-slate-100 text-slate-700">All sensors online</Badge>
+          <Badge className="bg-slate-100 text-slate-700">
+            {history.length > 0 ? 'Live data from DB' : 'Waiting for sensor data'}
+          </Badge>
         </div>
       </div>
 
-      {/* Emergency Alert - COMMENTED OUT */}
-      {/* <Card className="border border-red-600 bg-red-600">
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-white">Emergency alert</p>
-            <p className="mt-1 text-base font-semibold text-white">
-              Alert: Kitchen gas levels are rising!
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-white">
-            <AlertTriangle className="h-5 w-5" />
-            Check immediately
-          </div>
-        </CardContent>
-      </Card> */}
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {quickStats.map((stat, index) => {
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {quickStats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className="cursor-pointer transition-colors hover:bg-slate-50 border-2 border-slate-300">
+            <Card key={stat.label} className="cursor-pointer border-2 border-slate-300 transition-colors hover:bg-slate-50">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
+                    <p className="mb-1 text-sm text-muted-foreground">{stat.label}</p>
                     <p className="text-2xl font-semibold">{stat.value}</p>
                   </div>
                   <Icon className={`h-8 w-8 ${stat.color}`} />
@@ -140,64 +141,11 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
         })}
       </div>
 
-      {/* Charts Section - 2 Column Layout with Enhanced Visibility */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Total Energy Use (Donut Chart) - COMMENTED OUT */}
-        {/* <Card className="flex flex-col border-2 border-slate-300">
-          <CardHeader>
-            <CardTitle>Total Energy Use</CardTitle>
-            <p className="text-sm text-muted-foreground">Total: 2.4 kW</p>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-between">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => [`${value}%`, 'Percentage']} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            
-            {/* Custom Legend */}
-            {/* <div className="mt-6 space-y-3">
-              {pieData.map((item, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="h-3 w-3 rounded-full" 
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    />
-                    <span className="font-medium text-slate-700">{item.name}</span>
-                  </div>
-                  <div className="text-slate-600">
-                    <span className="font-semibold">{item.value}%</span> 
-                    <span className="text-slate-400 text-xs ml-1">({item.usage} kW)</span>
-                  </div>
-                </div>
-              ))}
-            </div> */}
-        {/* </CardContent>
-        </Card> */}
-
-        {/* Temperature Trend */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="border-2 border-slate-300">
           <CardHeader>
             <CardTitle>Temperature Trend</CardTitle>
-            <p className="text-sm text-muted-foreground">Room temperature over the day.</p>
+            <p className="text-sm text-muted-foreground">Latest readings stored in the database.</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -219,11 +167,10 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
           </CardContent>
         </Card>
 
-        {/* Humidity Trend */}
         <Card className="border-2 border-slate-300">
           <CardHeader>
             <CardTitle>Humidity Trend</CardTitle>
-            <p className="text-sm text-muted-foreground">Indoor humidity levels.</p>
+            <p className="text-sm text-muted-foreground">Indoor humidity levels from recent telemetry.</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -245,11 +192,10 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
           </CardContent>
         </Card>
 
-        {/* Gas Levels Trend
         <Card className="border-2 border-slate-300">
           <CardHeader>
             <CardTitle>Gas Levels Trend</CardTitle>
-            <p className="text-sm text-muted-foreground">Indoor air quality monitoring.</p>
+            <p className="text-sm text-muted-foreground">Indoor air quality monitoring from the latest samples.</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -269,13 +215,12 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
               </ResponsiveContainer>
             </div>
           </CardContent>
-        </Card> */}
+        </Card>
 
-        {/* Light Intensity Trend */}
         <Card className="border-2 border-slate-300">
           <CardHeader>
             <CardTitle>Light Intensity Trend</CardTitle>
-            <p className="text-sm text-muted-foreground">Indoor light levels monitoring.</p>
+            <p className="text-sm text-muted-foreground">Indoor light levels stored in the environment history.</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -289,7 +234,7 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
                   </defs>
                   <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                   <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value: number) => [`${value} Lux`, 'Light Intensity']} />
+                  <Tooltip formatter={(value: number) => [`${value} lux`, 'Light Intensity']} />
                   <Area type="monotone" dataKey="light" stroke="#fbbf24" fillOpacity={1} fill="url(#lightGradient)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>

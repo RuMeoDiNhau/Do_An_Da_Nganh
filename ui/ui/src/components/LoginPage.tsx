@@ -7,7 +7,7 @@ import { Label } from './ui/label';
 import { api } from '../services/api';
 
 interface LoginPageProps {
-  onLogin: (username: string) => void;
+  onLogin: (user?: { username?: string; email?: string | null; role?: string }) => void;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -31,7 +31,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       } else {
         const response = await api.login(email || username, password);
         localStorage.setItem('authToken', response.data.accessToken || response.data.token);
-        onLogin(email || username || 'User');
+        onLogin(response.data?.user);
       }
     } catch (error: any) {
       alert('Login failed: ' + (error.response?.data?.error || error.response?.data?.message || error.message));
