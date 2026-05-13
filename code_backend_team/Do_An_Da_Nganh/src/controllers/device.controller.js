@@ -23,6 +23,16 @@ async function control(req, res, next) {
   }
 }
 
+async function update(req, res, next) {
+  try {
+    const deviceId = req.params.id;
+    const device = await deviceService.updateDevice({ deviceId, data: req.body || {} });
+    res.json({ device });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function faceAccessWebhook(req, res, next) {
   try {
     const payload = req.body;
@@ -43,4 +53,4 @@ async function faceAccessWebhook(req, res, next) {
   }
 }
 
-module.exports = { list, control, faceAccessWebhook };
+module.exports = { list, update, control, faceAccessWebhook };

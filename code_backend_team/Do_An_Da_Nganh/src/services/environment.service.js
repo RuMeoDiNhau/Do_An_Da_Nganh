@@ -171,7 +171,7 @@ async function getReadingHistory({
 } = {}) {
   return prisma.environment.findMany({
     where: buildEnvironmentWhere({ roomId, from, to }),
-    take: parsePositiveInt(limit, 100, 500),
+    take: parsePositiveInt(limit, 100, 10000),
     orderBy: { time_created: "desc" },
     include: {
       rooms: {
@@ -220,6 +220,33 @@ async function getLatestReadingsByRoom({ scanLimit = 500 } = {}) {
 async function listRooms() {
   return prisma.rooms.findMany({
     orderBy: { name: "asc" },
+    select: {
+      r_id: true,
+      name: true,
+      room_type: true,
+      u_id: true
+    }
+  });
+}
+
+async function createRoom({ name, roomType, userId = null } = {}) {
+  const trimmedName = String(name || "").trim();
+  const trimmedRoomType = String(roomType || "").trim();
+
+  if (!trimmedName) {
+    throw new Error("room name is required");
+  }
+
+  if (!trimmedRoomType) {
+    throw new Error("room_type is required");
+  }
+
+  return prisma.rooms.create({
+    data: {
+      name: trimmedName,
+      room_type: trimmedRoomType,
+      u_id: userId || null
+    },
     select: {
       r_id: true,
       name: true,
@@ -308,5 +335,6 @@ module.exports = {
   getReadingHistory,
   getLatestReadingsByRoom,
   listRooms,
+  createRoom,
   getLatestSnapshot
 };
