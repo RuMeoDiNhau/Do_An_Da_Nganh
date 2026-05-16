@@ -200,6 +200,53 @@ Base URL: `http://localhost:3001/api`
   }
   ```
 
+#### Lấy lịch sử điều khiển thiết bị
+
+- Method: `GET`
+- URL: `http://localhost:3001/api/devices/:id/history?limit=100&from=...&to=...`
+  VD:`http://localhost:3001/api/devices/light/history?limit=50`
+  Muốn tìm :id thì mở Neon database lấy, hoặc dùng API GET devices để xem danh sách :id cũng được
+- Header: `Authorization: Bearer <ACCESS_TOKEN>`
+- Query params:
+  - `limit`: số lượng record (default 100, max 500)
+  - `from`: từ ngày (ISO string, optional)
+  - `to`: đến ngày (ISO string, optional)
+- Response:
+  ```json
+  {
+    "deviceId": "light_01",
+    "count": 5,
+    "data": [
+      {
+        "c_id": 1,
+        "device_id": "light_01",
+        "u_id": "user-uuid",
+        "event": {
+          "deviceId": "light_01",
+          "action": "turn_on",
+          "publishedValue": "1",
+          "actor": {
+            "sub": "user-uuid",
+            "email": "user@example.com"
+          },
+          "ts": "2026-05-15T12:30:00Z"
+        },
+        "time": "2026-05-15T12:30:00Z",
+        "devices": {
+          "device_id": "light_01",
+          "d_name": "Đèn phòng khách",
+          "type": "light"
+        },
+        "users": {
+          "u_id": "user-uuid",
+          "username": "john",
+          "email": "john@example.com"
+        }
+      }
+    ]
+  }
+  ```
+
 ### Environment
 
 #### Dữ liệu mới nhất
@@ -227,6 +274,106 @@ Base URL: `http://localhost:3001/api`
 - URL: `http://localhost:3001/api/environment/rooms/latest`
 - Header: `Authorization: Bearer <ACCESS_TOKEN>`
 
+### Alert & Threshold (Cảnh báo)
+
+#### Lấy danh sách threshold (Cấu hình ngưỡng cảnh báo)
+
+- Method: `GET`
+- URL: `http://localhost:3001/api/environment/settings/thresholds`
+- Header: `Authorization: Bearer <ACCESS_TOKEN>`
+- Response:
+  ```json
+  {
+    "data": [
+      {
+        "configKey": "temperature_threshold",
+        "min": 16,
+        "max": 32,
+        "enabled": true,
+        "unit": "°C"
+      }
+    ]
+  }
+  ```
+
+#### Lấy một threshold
+
+- Method: `GET`
+- URL: `http://localhost:3001/api/environment/settings/thresholds/temperature_threshold`
+- Header: `Authorization: Bearer <ACCESS_TOKEN>`
+
+#### Set hoặc update threshold
+
+- Method: `POST`
+- URL: `http://localhost:3001/api/environment/settings/thresholds`
+- Header: `Authorization: Bearer <ACCESS_TOKEN>`
+- Body:
+  ```json
+  {
+    "configKey": "temperature_threshold",
+    "min": 16,
+    "max": 32,
+    "enabled": true,
+    "unit": "°C"
+  }
+  ```
+- **Các threshold khác:**
+  - `humidity_threshold`: min=30, max=80 (%)
+  - `gas_threshold`: max=50 (ppm)
+  - `light_threshold`: min=0, max=100 (%)
+
+#### Lấy alerts gần đây
+
+- Method: `GET`
+- URL: `http://localhost:3001/api/environment/alerts?limit=50&hours=24&roomId=...`
+- Header: `Authorization: Bearer <ACCESS_TOKEN>`
+- Query params:
+  - `limit`: số lượng alert (default 50, max 200)
+  - `hours`: lấy alert trong vòng N giờ (default 24)
+  - `roomId`: lọc theo phòng (optional)
+- Response:
+  ```json
+  {
+    "data": [
+      {
+        "a_id": "uuid-xxx",
+        "a_type": "temperature_alert",
+        "r_id": "room-uuid",
+        "metadata": {
+          "reason": "temperature too high (35 > 32)",
+          "value": 35,
+          "readingKind": "environment",
+          "timestamp": "2026-05-15T10:30:00Z"
+        },
+        "time": "2026-05-15T10:30:00Z",
+        "rooms": {
+          "r_id": "room-uuid",
+          "name": "Phòng Khách",
+          "room_type": "living_room"
+        }
+      }
+    ],
+    "count": 1
+  }
+  ```
+
+#### Xoá alert
+
+- Method: `DELETE`
+- URL: `http://localhost:3001/api/environment/alerts/uuid-xxx`
+- Header: `Authorization: Bearer <ACCESS_TOKEN>`
+
+#### Setup mặc định các threshold (Chạy lần đầu)
+
+```powershell
+node scripts/init-thresholds.js
+```
+
+Điều này sẽ set up:
+- Temperature: 16°C - 32°C
+- Humidity: 30% - 80%
+- Gas: max 50 ppm
+- Light: 0% - 100%
 
 
 ## lƯU í:

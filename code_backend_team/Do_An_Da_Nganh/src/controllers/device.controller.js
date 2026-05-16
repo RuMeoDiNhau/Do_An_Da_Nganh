@@ -23,6 +23,30 @@ async function control(req, res, next) {
   }
 }
 
+async function controlHistory(req, res, next) {
+  try {
+    const deviceId = req.params.id;
+    const limit = req.query.limit || 100;
+    const from = req.query.from ? new Date(req.query.from) : null;
+    const to = req.query.to ? new Date(req.query.to) : null;
+
+    const history = await deviceService.getControlHistory({
+      deviceId,
+      limit,
+      from: from && !isNaN(from) ? from : null,
+      to: to && !isNaN(to) ? to : null
+    });
+
+    res.json({
+      deviceId,
+      count: history.length,
+      data: history
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function update(req, res, next) {
   try {
     const deviceId = req.params.id;
@@ -53,4 +77,4 @@ async function faceAccessWebhook(req, res, next) {
   }
 }
 
-module.exports = { list, update, control, faceAccessWebhook };
+module.exports = { list, update, control, controlHistory, faceAccessWebhook };

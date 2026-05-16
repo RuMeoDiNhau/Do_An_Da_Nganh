@@ -179,4 +179,37 @@ async function controlDevice({ deviceId, action, payload, actor }) {
   };
 }
 
-module.exports = { listDevices, findDevice, updateDevice, controlDevice };
+/**
+ * Lấy lịch sử điều khiển device
+ */
+async function getControlHistory({ deviceId = null, userId = null, limit = 100, from = null, to = null } = {}) {
+  const where = {};
+
+  if (deviceId) {
+    where.device_id = deviceId;
+  }
+
+  if (userId) {
+    where.u_id = userId;
+  }
+
+  if (from || to) {
+    where.time = {};
+    if (from) where.time.gte = from;
+    if (to) where.time.lte = to;
+  }
+
+  const numLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+
+  return prisma.control_log.findMany({
+    where,
+    take: numLimit,
+    orderBy: { time: "desc" },
+    include: {
+      devices: { select: { device_id: true, d_name: true, type: true } },
+      users: { select: { u_id: true, username: true, email: true } }
+    }
+  });
+}
+
+module.exports = { listDevices, findDevice, updateDevice, controlDevice, getControlHistory };
