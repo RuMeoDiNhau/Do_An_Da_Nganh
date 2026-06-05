@@ -54,6 +54,7 @@ export default function App() {
   const [voiceGranted, setVoiceGranted] = useState(false);
   const [voiceGrantedUser, setVoiceGrantedUser] = useState<string | null>(null);
   const [voiceGrantExpiry, setVoiceGrantExpiry] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
 
   // --- AI Suggestion State ---
   const [aiSuggesting, setAiSuggesting] = useState(false);
@@ -167,22 +168,20 @@ export default function App() {
   useEffect(() => {
     if (!voiceGrantExpiry) return;
 
-    const remaining = voiceGrantExpiry - Date.now();
-    if (remaining <= 0) {
-      setVoiceGranted(false);
-      setVoiceGrantedUser(null);
-      setVoiceGrantExpiry(null);
-      return;
-    }
+    // Cập nhật giao diện mỗi giây để đếm ngược chạy mượt mà
+    const interval = setInterval(() => {
+      const remaining = voiceGrantExpiry - Date.now();
+      if (remaining <= 0) {
+        setVoiceGranted(false);
+        setVoiceGrantedUser(null);
+        setVoiceGrantExpiry(null);
+        setListening(false);
+      } else {
+        setNow(Date.now());
+      }
+    }, 1000);
 
-    const timer = setTimeout(() => {
-      setVoiceGranted(false);
-      setVoiceGrantedUser(null);
-      setVoiceGrantExpiry(null);
-      setListening(false);
-    }, remaining);
-
-    return () => clearTimeout(timer);
+    return () => clearInterval(interval);
   }, [voiceGrantExpiry]);
 
   // --- Speech Recognition ---
@@ -279,7 +278,7 @@ export default function App() {
   }
 
   // Tính thời gian còn lại của phiên voice (phút:giây)
-  const voiceTimeLeft = voiceGrantExpiry ? Math.max(0, Math.ceil((voiceGrantExpiry - Date.now()) / 1000)) : 0;
+  const voiceTimeLeft = voiceGrantExpiry ? Math.max(0, Math.ceil((voiceGrantExpiry - now) / 1000)) : 0;
   const voiceMinLeft = Math.floor(voiceTimeLeft / 60);
   const voiceSecLeft = voiceTimeLeft % 60;
 
